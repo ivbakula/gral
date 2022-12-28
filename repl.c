@@ -6,6 +6,7 @@
 #include "pointer.h"
 #include "trace.h"
 
+void *env = NULL;
 static char output_buffer[1024];
 
 static void
@@ -110,44 +111,83 @@ READ (char *line)
 }
 
 void *
-EVAL (void *list, void *env)
+EVAL (void *list)
 {
+  if (list == NIL)
+    {
+      return NIL;
+    }
+
   if (eq (atom (list), create_atom ("t")) != NIL)
     {
-      return list;
+      void *retval = assoc (list, env);
+      if (retval == NIL)
+        {
+          TRACE_LANGUAGE_ERROR ("Unknown symbol %s!",
+                                (char *) __get_pointer (list));
+        }
+      return retval;
     }
+
   if (atom (car (list)) != NIL)
     {
       if (eq (car (list), create_atom ("quote")) != NIL)
         {
-          return cdr (list);
+          return car (cdr (list));
         }
 
-      if (eq (car (list), create_atom ("atom")) != NIL)
+      else if (eq (car (list), create_atom ("atom")) != NIL)
         {
-          return atom (EVAL (cadr (list), env));
+          return atom (EVAL (cadr (list)));
         }
 
-      if (eq (car (list), create_atom ("eq")) != NIL)
+      else if (eq (car (list), create_atom ("eq")) != NIL)
         {
-          return eq (EVAL (cadr (list), env),
-                     EVAL (caddr (list), env));
+          return eq (EVAL (cadr (list)), EVAL (caddr (list)));
         }
 
-      if (eq (car (list), create_atom ("car")) != NIL)
+      else if (eq (car (list), create_atom ("car")) != NIL)
         {
-          return car (EVAL (cadr (list), env));
+          return car (EVAL (cadr (list)));
         }
 
-      if (eq (car (list), create_atom ("cdr")) != NIL)
+      else if (eq (car (list), create_atom ("cdr")) != NIL)
         {
-          return cdr (EVAL (cadr (list), env));
+          return cdr (EVAL (cadr (list)));
         }
 
-      if (eq (car (list), create_atom ("cons")) != NIL)
+      else if (eq (car (list), create_atom ("cons")) != NIL)
         {
-          return cons (EVAL (cadr (list), env),
-                       EVAL (caddr (list), env));
+          return cons (EVAL (cadr (list)), EVAL (caddr (list)));
+        }
+
+      else if (eq (car (list), create_atom ("pair")) != NIL)
+        {
+          return pair (EVAL (cadr (list)), EVAL (caddr (list)));
+        }
+
+      else if (eq (car (list), create_atom ("assoc")) != NIL)
+        {
+          return assoc (EVAL (cadr (list)), EVAL (caddr (list)));
+        }
+
+      else if (eq (car (list), create_atom ("setq")) != NIL)
+        {
+          env = cons (car (
+                        setq (car (cdr (list)), EVAL (caddr (list)))),
+                      env);
+        }
+
+      else if (eq (car (list), create_atom ("getenv")) != NIL)
+        {
+          return env;
+        }
+      else
+        {
+          TRACE_LANGUAGE_ERROR ("Unable to execute %s. Unknown "
+                                "function.",
+                                (char *) __get_pointer (car (list)));
+          return NIL;
         }
     }
   return list;

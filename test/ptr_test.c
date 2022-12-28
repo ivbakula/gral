@@ -7,6 +7,8 @@
 #include "../repl.h"
 #include "../trace.h"
 
+extern void *env;
+
 void
 test_pointer_tagging ()
 {
@@ -316,127 +318,126 @@ test_read_complex_list ()
 }
 
 void
-test_invalid_input ()
-{
-  LOG_START_TESTCASE ();
-  const char input[] = "(a b c d (1 2 3 4 (j n k p)) a s d f";
-  void *list = READ (input);
-
-  printf ("%s\n", PRINT (list));
-  //  assert (!strcmp (PRINT(NIL), PRINT(list)));
-  LOG_END_TESTCASE ();
-}
-
-void
-test_concat ()
-{
-  LOG_START_TESTCASE ();
-  LOG_START_TEST_STEP ("test (concat '(1 2 3) NIL)");
-  char a[] = "(1 2 3)";
-  void *x = READ (a);
-  void *xy = concat (x, NIL);
-  assert (!strcmp (PRINT (xy), a));
-  LOG_END_TEST_STEP ("test (concat '(1 2 3) NIL)");
-
-  LOG_START_TEST_STEP ("test (concat '(1 2 3) '(a b c))");
-  char b[] = "(a b c)";
-  void *y = READ (b);
-  void *ab = concat (x, y);
-  printf ("%s\n", PRINT (ab));
-  assert (!strcmp (PRINT (ab), "(1 2 3 a b c)"));
-  LOG_END_TESTCASE ();
-
-  LOG_START_TEST_STEP ("test (concat '(1 2 3 (a b c)) '(d e f))");
-  char lst1[] = "(1 2 3 (a b c))";
-  char lst2[] = "(d e f)";
-  char expect[] = "(1 2 3 (a b c) d e f)";
-  x = READ (lst1);
-  y = READ (lst2);
-  xy = concat (x, y);
-  printf ("%s\n", PRINT (xy));
-  assert (!strcmp (PRINT (xy), expect));
-  LOG_END_TEST_STEP ("test (concat '(1 2 3 (a b c)) '(d e f))");
-}
-
-void
-test_copy ()
-{
-  LOG_START_TESTCASE ();
-  LOG_START_TEST_STEP ("test (copy '(1 2 3))");
-  char lst[] = "(1 2 3)";
-  void *x = READ (lst);
-  void *x2 = copy (x);
-
-  printf ("%s\n", PRINT (x2));
-  assert (!strcmp (PRINT (x2), lst));
-  LOG_END_TESTCASE ();
-}
-
-void
 test_pair ()
 {
   LOG_START_TESTCASE ();
-  const char a[] = "(a b c)";
-  const char b[] = "(1 2 3)";
+
+  LOG_START_TEST_STEP ("(pair (a b c) (1 2 3))");
+  char a[] = "(a b c)";
+  char b[] = "(1 2 3)";
 
   void *x = READ (a);
   void *y = READ (b);
 
-  assert (!strcmp (a, PRINT (x)));
-  assert (!strcmp (b, PRINT (y)));
-
   void *xy = pair (x, y);
-
   printf ("%s\n", PRINT (xy));
-  assert (!strcmp ("((a 1) (b 2) (c 3))", PRINT (xy)));
-
+  assert (!strcmp (PRINT (xy), "((a 1) (b 2) (c 3))"));
   LOG_END_TESTCASE ();
+}
+
+void
+test_assoc ()
+{
+  LOG_START_TESTCASE ();
+  LOG_START_TEST_STEP ("(assoc a ((a 1) (b 2) (c 3)))");
+  char a[] = "(a b c)";
+  char b[] = "(1 2 3)";
+  void *x = READ (a);
+  void *y = READ (b);
+  void *xy = pair (x, y);
+  printf ("(assoc a %s)\n", PRINT (xy));
+  void *r = assoc (create_atom ("a"), xy);
+  assert (!strcmp ("1", PRINT (r)));
+  LOG_END_TESTCASE ();
+
+  printf ("(assoc b %s)\n", PRINT (xy));
+  assert (!strcmp ("2", PRINT (assoc (create_atom ("b"), xy))));
+  printf ("(assoc c %s)\n", PRINT (xy));
+  assert (!strcmp ("3", PRINT (assoc (create_atom ("c"), xy))));
+  printf ("(assoc z %s)\n", PRINT (xy));
+  assert (NIL == assoc (create_atom ("z"), xy));
 }
 
 void
 test_eval ()
 {
+  env = NIL;
   LOG_START_TESTCASE ();
-  LOG_START_TEST_STEP ("eval (car (1 2 3 4))");
-  const char a[] = "(car (1 2 3 4))";
+  LOG_START_TEST_STEP ("eval (car (quote (1 2 3 4)))");
+  const char a[] = "(car (quote (1 2 3 4)))";
 
   void *l = READ (a);
-  l = EVAL (l, NIL);
+  l = EVAL (l);
   printf ("%s\n", PRINT (l));
   assert (!strcmp ("1", PRINT (l)));
   LOG_END_TEST_STEP ("(eval (car (1 2 3 4)))");
 
-  LOG_START_TEST_STEP ("(eval (cdr (1 2 3 4)))");
-  const char b[] = "(cdr (1 2 3 4))";
-  printf ("%s\n", PRINT (EVAL (READ (b), NIL)));
-  assert (!strcmp ("(2 3 4)", PRINT (EVAL (READ (b), NIL))));
-  LOG_END_TEST_STEP ("(eval (cdr (1 2 3 4)))");
+  LOG_START_TEST_STEP ("(eval (cdr (quote (1 2 3 4))))");
+  const char b[] = "(cdr (quote (1 2 3 4)))";
+  printf ("%s\n", PRINT (EVAL (READ (b))));
+  assert (!strcmp ("(2 3 4)", PRINT (EVAL (READ (b)))));
+  LOG_END_TEST_STEP ("(eval (cdr (quote (1 2 3 4))))");
   LOG_END_TESTCASE ();
 
   LOG_START_TEST_STEP ("(eval (cons 1 (a b c d))");
-  const char c[] = "(cons 1 (a b c d))";
-  printf ("%s\n", PRINT (EVAL (READ (c), NIL)));
-  assert (!strcmp ("(1 a b c d)", PRINT (EVAL (READ (c), NIL))));
-  LOG_END_TEST_STEP ("(eval (cons 1 (a b c d))");
+  const char c[] = "(cons (quote 1) (quote (a b c d)))";
+  printf ("%s\n", PRINT (EVAL (READ (c))));
+  assert (!strcmp ("(1 a b c d)", PRINT (EVAL (READ (c)))));
+  LOG_END_TEST_STEP ("(eval (cons 1 (quote (a b c d)))");
 
   LOG_START_TEST_STEP ("(eval (cons 1 (cdr (a b c d))))");
-  const char d[] = "(cons 1 (cdr (a b c d)))";
-  printf ("%s\n", PRINT (EVAL (READ (d), NIL)));
-  assert (!strcmp ("(1 b c d)", PRINT (EVAL (READ (d), NIL))));
-  LOG_END_TEST_STEP ("(eval (cons 1 (cdr (a b c d))))");
+  const char d[] = "(cons (quote 1) (cdr (quote (a b c d))))";
+  printf ("%s\n", PRINT (EVAL (READ (d))));
+  assert (!strcmp ("(1 b c d)", PRINT (EVAL (READ (d)))));
+  LOG_END_TEST_STEP ("(eval (cons 1 (cdr (quote (a b c d)))))");
 
   LOG_START_TEST_STEP ("(eval (quote 1 2 3 4 5))");
-  const char e[] = "(quote 1 2 3 4 5)";
-  printf ("%s\n", PRINT (EVAL (READ (e), NIL)));
-  assert (!strcmp ("(1 2 3 4 5)", PRINT (EVAL (READ (e), NIL))));
+  const char e[] = "(quote (1 2 3 4 5))";
+  printf ("%s\n", PRINT (EVAL (READ (e))));
+  assert (!strcmp ("(1 2 3 4 5)", PRINT (EVAL (READ (e)))));
   LOG_END_TEST_STEP ("(eval (quote 1 2 3 4 5))");
 
   LOG_START_TEST_STEP ("(eval (cons (quote a b c) (quote 1 2 3)))");
-  const char f[] = "(cons (quote a b c) (quote 1 2 3))";
-  printf ("%s\n", PRINT (EVAL (READ (f), NIL)));
-  assert (!strcmp ("((a b c) 1 2 3)", PRINT (EVAL (READ (f), NIL))));
+  const char f[] = "(cons (quote (a b c)) (quote (1 2 3)))";
+  printf ("%s\n", PRINT (EVAL (READ (f))));
+  assert (!strcmp ("((a b c) 1 2 3)", PRINT (EVAL (READ (f)))));
   LOG_END_TEST_STEP ("(eval (cons (quote a b c) (quote 1 2 3)))");
+
+  LOG_START_TEST_STEP ("(eval (pair (1 2 3) (a b c)))");
+  const char g[] = "(pair (quote (1 2 3)) (quote (a b c)))";
+  printf ("%s\n", PRINT (EVAL (READ (g))));
+  assert (!strcmp ("((1 a) (2 b) (3 c))", PRINT (EVAL (READ (g)))));
+  LOG_END_TEST_STEP ("(eval (pair (1 2 3) (a b c)))");
+
+  LOG_START_TEST_STEP ("(eval (assoc 1 %s))",
+                       PRINT (EVAL (READ (g))));
+  const char h[] = "(assoc (quote 1) ((1 a) (2 b) (3 c)))";
+  printf ("%s\n", PRINT (EVAL (READ (h))));
+  assert (!strcmp ("a", PRINT (EVAL (READ (h)))));
+  LOG_END_TEST_STEP ("(eval (assoc 1 %s))", PRINT (EVAL (READ (h))));
+
+  LOG_START_TEST_STEP ("(eval (set (a) (1)))");
+  const char i[] = "(setq a (quote 1))";
+  EVAL (READ (i));
+  printf ("%s\n", PRINT (env));
+  assert (!strcmp (PRINT (env), "((a 1))"));
+  LOG_END_TEST_STEP ("(eval (set (a) (1)))");
+
+  const char j[] = "(setq b (quote 2))";
+  LOG_START_TEST_STEP ("(eval %s\n)", j);
+  EVAL (READ (j));
+  printf ("%s\n", PRINT (env));
+  assert (!strcmp (PRINT (env), "((b 2) (a 1))"));
+  LOG_START_TEST_STEP ("(eval (set b 2))");
+
+  const char k[] = "(setq c (quote (1 2 3 4)))";
+  LOG_START_TEST_STEP ("(eval %s\n)", k);
+  EVAL (READ (k));
+  printf ("%s\n", PRINT (env));
+  //  assert (!strcmp(PRINT(env), "(())"))
+  LOG_END_TEST_STEP ("(eval %s\n)", k);
 }
+
 int
 main ()
 {
@@ -456,10 +457,8 @@ main ()
   test_append ();
   test_read_list ();
   test_read_complex_list ();
-  //  test_invalid_input ();
-  //  test_concat();
-  //  test_copy();
-  //  test_pair ();
+  test_pair ();
+  test_assoc ();
   test_eval ();
   fprintf (stdout, "All tests executed successfully!\n");
 }

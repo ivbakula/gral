@@ -15,7 +15,6 @@ void *cdar (void *x);
 void *null (void *x);
 void *append (void *x, void *y);
 void *pair (void *x, void *y);
-void *clist (void *x);
-void *concat (void *x, void *y);
-void *copy (void *x);
+void *assoc (void *x, void *y);
+void *setq (void *x, void *y);
 #endif

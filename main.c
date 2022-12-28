@@ -1,12 +1,15 @@
+#include <readline/history.h>
+#include <readline/readline.h>
+#include "axioms.h"
 #include "data.h"
 #include "repl.h"
 
-#include <readline/history.h>
-#include <readline/readline.h>
+extern void *env;
 
 int
 main (int argc, char *argv[])
 {
+  env = NULL;
   while (1)
     {
       char *input = readline ("repl> ");
@@ -15,6 +18,6 @@ main (int argc, char *argv[])
       if (!input)
         break;
 
-      printf ("%s\n", PRINT (EVAL (READ (input), NIL)));
+      printf ("%s\n", PRINT (EVAL (READ (input))));
     }
 }
